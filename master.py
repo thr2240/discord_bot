@@ -20,7 +20,7 @@ async def deletechannel(ctx, channel: d.TextChannel):
 @client.command()
 async def createchannel(ctx, channelName):
     guild = ctx.guild
-
+    print("create channel ", channelName)
     mbed = d.Embed(
         title   =   'Success',
         description = "{}has been successfully created.".format(channelName)
@@ -28,6 +28,5 @@ async def createchannel(ctx, channelName):
     if ctx.author.guild_permissions.manage_channels:
         await guild.create_text_channel(name='{}'.format(channelName))
         await ctx.send(embed=mbed)
-        await channel.delete()
 
-client.run('MTAzOTAwODI4Mzc2NTI0MzkzNA.GZ6eCL.hYPT4WRq3bMOAfWHJds-oJouJUuCodQDIUAEhE')
+client.run('MTAzOTAwODI4Mzc2NTI0MzkzNA.GqFEtZ.SKqkRgKg4NejJG07siKKeYQMSf6HohhIMq6S3g')

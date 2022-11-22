@@ -1,6 +1,8 @@
 from columnar import columnar
 import mysql.connector
 import discord
+import asyncio
+from discord.ext import commands
 
 from dotenv import dotenv_values
 
@@ -12,6 +14,8 @@ TOKEN = vars["TOKEN"]
 
 client = discord.Client(intents=discord.Intents.default())
 
+clienter = commands.Bot(intents=discord.Intents.default(),command_prefix = '!', help_command=None)
+
 config = {
     'user': vars["USERNAME"],
     'password': vars["PASSWORD"],
@@ -22,6 +26,7 @@ config = {
 
 try:
     cnx = mysql.connector.connect(**config)
+    cnx.autocommit = True
     cursor = cnx.cursor()
     print("MySQL Connection Created Successfully")
 except Exception as e:
@@ -45,6 +50,7 @@ def exec(query):
 async def on_message(message):
     data = []
     query = ""
+    print("message ", message)
     if message.author == client.user:
         return
     if message.content.startswith(syntax):
@@ -91,6 +97,10 @@ async def on_message(message):
             await msg.add_reaction("⚠️")
             return
 
+def send_invite(prev_invites):
+    query = "SELECT invites FROM  clans"
+    cur_invites = exec(query)
+
 
 @client.event
 async def on_ready():
@@ -103,9 +113,69 @@ async def on_ready():
     # ? Custom Activity
     await client.change_presence(
         activity=discord.Activity(type=discord.ActivityType.listening, name="Syntax = " + syntax))
-    query = "select count(*) from clans"
-    output = exec(query)
-    print(output[0][0])
+    cnt_query = "SELECT COUNT(*) FROM  clans"
+    cname_query = "SELECT cname FROM  clans"
+    invite_query = "SELECT invites FROM  clans"
 
+    prev_clans_cnt = exec(cnt_query)
+    prev_clans = exec(cname_query)
+    prev_invites = exec(invite_query)
+    print(prev_invites)
+
+    while True:
+        cur_clans_cnt = exec(cnt_query)
+        cur_clans = exec(cname_query)
+
+        if prev_clans_cnt == cur_clans_cnt:
+            continue
+
+        if (prev_clans_cnt > cur_clans_cnt):
+            delete_clan_name = list(set(prev_clans) - set(cur_clans))
+            print("clan deleted = ", delete_clan_name[0][0])
+            
+            for guild in client.guilds:
+                existing_channel = discord.utils.get(guild.channels, name= delete_clan_name[0][0])
+                general_channel = discord.utils.get(guild.channels, name= "general")
+            # if the channel exists
+            if existing_channel is not None:
+                await existing_channel.delete()
+                
+                await general_channel.send(f"Successfully deleted channel {delete_clan_name[0][0]}!")
+                
+            # if the channel does not exist, inform the user
+            else:
+                await general_channel.send(f'No channel named, "{ delete_clan_name[0][0]}", was found')
+
+        else:
+
+            created_clan_name = list(set(cur_clans) - set(prev_clans))
+            print("clan created: name = ", created_clan_name[0][0])
+
+            await client.wait_until_ready()
+            for guild in client.guilds:
+                channel = await guild.create_text_channel(name=created_clan_name[0][0])
+                role = await guild.create_role(name=created_clan_name[0][0])
+                leader_role = await guild.create_role(name="{created_clan_name[0][0]} Leader")
+                coleader_role = await guild.create_role(name="{created_clan_name[0][0]} Co-Leader")
+                await channel.send(f"Successfully created channel and roles with {created_clan_name[0][0]}!")
+        
+        prev_clans = cur_clans
+        prev_clans_cnt = cur_clans_cnt
+
+        asyncio.sleep(1)
+
+@clienter.command()
+async def createchannel(ctx, channelName):
+    
+    print('received message ',channelName)
+    guild = ctx.guild
+
+    mbed = discord.Embed(
+        title   =   'Success',
+        description = "{}has been successfully created.".format(channelName)
+    )
+    if ctx.author.guild_permissions.manage_channels:
+        await guild.create_text_channel(name='{}'.format(channelName))
+        await ctx.send(embed=mbed)
 
 client.run(TOKEN)
